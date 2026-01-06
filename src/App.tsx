@@ -60,12 +60,33 @@ function App() {
     <div className="flex h-screen w-screen bg-gray-100 overflow-hidden">
       
       {/* SIDEBAR */}
+      {/* SIDEBAR */}
       <aside className="w-64 bg-white border-r border-gray-200 flex-shrink-0 flex flex-col h-full">
-        <div className="p-6 border-b border-gray-100">
-           <h1 className="text-xl font-bold text-blue-600 tracking-wider">EQUIP-TRACK</h1>
+        
+        {/* HEADER + SIGNATURE (Updated) */}
+        <div className="p-6 border-b border-gray-100 bg-gray-50">
+           <h1 className="text-xl font-bold text-blue-600 tracking-wider mb-5">EQUIP-TRACK</h1>
+           
+           {/* Your Signature Card */}
+           <div className="flex items-center gap-3 bg-white p-3 rounded-xl shadow-sm border border-gray-100">
+               <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                   AD
+               </div>
+               <div>
+                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Developed By</p>
+                   <p className="font-bold text-gray-900 text-sm">Akshat Darji</p>
+               </div>
+           </div>
         </div>
+        
+        {/* Navigation */}
         <div className="flex-1 overflow-y-auto">
           <Navbar currentView={currentView} onNavigate={setCurrentView} /> 
+        </div>
+
+        {/* Bottom Logout/Version area (Optional cleanup) */}
+        <div className="p-4 border-t border-gray-100 text-center">
+            <p className="text-xs text-gray-300">v1.0.0 Portfolio Build</p>
         </div>
       </aside>
 
