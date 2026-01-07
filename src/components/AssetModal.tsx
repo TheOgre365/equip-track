@@ -1,7 +1,6 @@
-import { motion } from 'framer-motion';
-import { Save, Trash2, X } from 'lucide-react';
+import { Printer, Save, Trash2, X } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { useEffect, useState } from 'react';
-import QRCode from "react-qr-code";
 import { supabase } from '../supabaseClient';
 
 interface Asset {
@@ -20,191 +19,136 @@ interface AssetModalProps {
 }
 
 export function AssetModal({ asset, onClose, onSaved }: AssetModalProps) {
-  const [formData, setFormData] = useState<Asset>(asset);
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'qr'>('details');
-  
-  // NEW: State to store the list of employees
+  const [name, setName] = useState(asset.name);
+  const [type, setType] = useState(asset.type);
+  const [status, setStatus] = useState(asset.status);
+  const [serial, setSerial] = useState(asset.serial_number);
+  const [assignedTo, setAssignedTo] = useState(asset.assigned_to || '');
   const [employees, setEmployees] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'details' | 'qr'>('details');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    setFormData(asset);
-    fetchEmployees(); // Fetch list when modal opens
-  }, [asset]);
+    async function fetchEmployees() {
+      const { data } = await supabase.from('employees').select('full_name');
+      if (data) setEmployees(data);
+    }
+    fetchEmployees();
+  }, []);
 
-  // NEW: Function to get employees from Supabase
-  async function fetchEmployees() {
-    const { data } = await supabase.from('employees').select('full_name');
-    if (data) setEmployees(data);
-  }
+  const isAccessory = ['Keyboard', 'Mouse', 'Mouse Pad', 'Monitor', 'Headset', 'Cable', 'Accessory', 'Other'].includes(type);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
+  // Auto-lock assignment
+  useEffect(() => {
+    if (status === 'Maintenance' || status === 'Available' || isAccessory) {
+      setAssignedTo(''); 
+    }
+  }, [status, isAccessory]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
+  const handleSave = async () => {
+    setIsSaving(true);
     try {
-      const { id, ...dataToSend } = formData;
+      const updateData = {
+        name,
+        type,
+        status,
+        serial_number: serial,
+        assigned_to: (status === 'In Use' && !isAccessory) ? assignedTo : null 
+      };
 
       if (asset.id === 0) {
-        const { error } = await supabase.from('assets').insert([dataToSend]);
-        if (error) throw error;
+        await supabase.from('assets').insert(updateData);
       } else {
-        const { error } = await supabase
-          .from('assets')
-          .update(dataToSend)
-          .eq('id', asset.id);
-        if (error) throw error;
+        await supabase.from('assets').update(updateData).eq('id', asset.id);
       }
-      onSaved(); 
+      onSaved();
       onClose();
-    } catch (error: any) {
-      console.error('Error saving:', error);
-      alert(`Error Saving: ${error.message}`);
+    } catch (error) {
+      alert("Failed to save.");
     } finally {
-      setLoading(false);
+      setIsSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this asset?")) return;
-    try {
-      const { error } = await supabase.from('assets').delete().eq('id', asset.id);
-      if (error) throw error;
+    if (confirm('Permanently delete this item?')) {
+      setIsSaving(true);
+      await supabase.from('assets').delete().eq('id', asset.id);
       onSaved();
       onClose();
-    } catch (error: any) {
-      alert(`Error Deleting: ${error.message}`);
     }
   };
 
+  const isAssignmentDisabled = status === 'Maintenance' || status === 'Available' || isAccessory;
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden"
-      >
-        
-        {/* Header */}
-        <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-            <div className="flex bg-gray-200 p-1 rounded-lg">
-                <button 
-                  onClick={() => setActiveTab('details')}
-                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${activeTab === 'details' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                   Details
-                </button>
-                {asset.id !== 0 && (
-                  <button 
-                    onClick={() => setActiveTab('qr')}
-                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${activeTab === 'qr' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                  >
-                     QR Code
-                  </button>
-                )}
-            </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                <X size={24} />
-            </button>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden transform transition-all">
+        <div className="flex border-b border-gray-100">
+          <button onClick={() => setActiveTab('details')} className={`flex-1 py-4 text-sm font-bold ${activeTab === 'details' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-400 hover:text-gray-600'}`}>Details</button>
+          <button onClick={() => setActiveTab('qr')} className={`flex-1 py-4 text-sm font-bold ${activeTab === 'qr' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-400 hover:text-gray-600'}`}>QR Code</button>
+          <button onClick={onClose} type="button" className="px-4 text-gray-400 hover:text-red-500"><X size={20} /></button>
         </div>
 
-        {/* Body */}
         <div className="p-6">
-          {activeTab === 'details' && (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Asset Name</label>
-                <input name="name" required value={formData.name} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-
+          {activeTab === 'details' ? (
+            <div className="space-y-4">
+              <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Item Name</label><input className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Logitech K380" /></div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                  <select name="type" value={formData.type} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-white">
-                    <option value="Laptop">Laptop</option>
-                    <option value="Phone">Phone</option>
-                    <option value="Tablet">Tablet</option>
+                  {/* DYNAMIC LABEL: TYPE vs ACCESSORY */}
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                    {isAccessory ? 'Accessory' : 'Type'}
+                  </label>
+                  <select className="w-full border border-gray-200 rounded-lg p-2.5 text-sm bg-white" value={type} onChange={e => setType(e.target.value)}>
+                    <optgroup label="Main Assets">
+                      <option>Laptop</option><option>PC</option><option>Phone</option><option>Tablet</option>
+                    </optgroup>
+                    <optgroup label="Accessories">
+                      <option>Keyboard</option><option>Mouse</option><option>Mouse Pad</option><option>Monitor</option><option>Headset</option><option>Cable</option><option>Accessory</option><option>Other</option>
+                    </optgroup>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select name="status" value={formData.status} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-white">
-                    <option value="Available">Available</option>
-                    <option value="In Use">In Use</option>
-                    <option value="Maintenance">Maintenance</option>
-                  </select>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Status</label>
+                    <select className="w-full border border-gray-200 rounded-lg p-2.5 text-sm bg-white" value={status} onChange={e => setStatus(e.target.value)}>
+                        <option value="Available">Available</option>
+                        {!isAccessory && <option value="In Use">In Use</option>}
+                        <option value="Maintenance">Maintenance</option>
+                    </select>
                 </div>
               </div>
 
-              {/* NEW: Assigned To Dropdown */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
-                <select 
-                  name="assigned_to" 
-                  value={formData.assigned_to || ''} 
-                  onChange={handleChange} 
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-white"
-                >
-                  <option value="">-- Unassigned --</option>
-                  {employees.map((emp, i) => (
-                    <option key={i} value={emp.full_name}>
-                      {emp.full_name}
-                    </option>
-                  ))}
-                </select>
+              {!isAccessory && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Assigned To {isAssignmentDisabled && <span className="text-red-400 ml-2 text-[10px]">(Locked)</span>}</label>
+                  <select className={`w-full border border-gray-200 rounded-lg p-2.5 text-sm bg-white ${isAssignmentDisabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''}`} value={assignedTo} onChange={e => setAssignedTo(e.target.value)} disabled={isAssignmentDisabled}>
+                    <option value="">-- Not Assigned --</option>
+                    {employees.map(emp => (<option key={emp.full_name} value={emp.full_name}>{emp.full_name}</option>))}
+                  </select>
+                </div>
+              )}
+
+              <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Serial Number / ID</label><input className="w-full border border-gray-200 rounded-lg p-2.5 text-sm font-mono text-gray-600" value={serial} onChange={e => setSerial(e.target.value)} placeholder="Optional" /></div>
+              
+              <div className="flex justify-between items-center pt-4 mt-2 border-t border-gray-50">
+                {asset.id !== 0 && (<button onClick={handleDelete} type="button" className="text-red-400 hover:bg-red-50 p-2 rounded-lg transition"><Trash2 size={18} /></button>)}
+                <div className="flex gap-3 ml-auto">
+                   <button onClick={onClose} type="button" className="px-4 py-2 text-gray-500 text-sm font-medium hover:bg-gray-100 rounded-lg transition">Cancel</button>
+                   <button onClick={handleSave} type="button" disabled={isSaving} className="px-6 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg shadow-md hover:bg-blue-700 transition flex items-center gap-2"><Save size={16} /> Save</button>
+                </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Serial Number</label>
-                <input name="serial_number" value={formData.serial_number} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-2" />
-              </div>
-
-              <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                  {asset.id !== 0 ? (
-                    <button type="button" onClick={handleDelete} className="text-red-500 hover:text-red-700 p-2">
-                       <Trash2 size={20} />
-                    </button>
-                  ) : <div></div>}
-
-                  <div className="flex gap-3">
-                    <button type="button" onClick={onClose} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg">Cancel</button>
-                    <button type="submit" disabled={loading} className="px-6 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2">
-                      <Save size={18} /> {loading ? 'Saving...' : 'Save'}
-                    </button>
-                  </div>
-              </div>
-            </form>
-          )}
-
-          {activeTab === 'qr' && (
-            <div className="flex flex-col items-center justify-center space-y-6 py-4">
-               <div className="bg-white p-4 border rounded-xl shadow-sm">
-                  <QRCode 
-                    value={JSON.stringify({ id: asset.id, sn: asset.serial_number, name: asset.name, assigned: asset.assigned_to })} 
-                    size={200} 
-                  />
-               </div>
-               <div className="text-center">
-                 <p className="font-bold text-gray-900 text-lg">{asset.name}</p>
-                 <p className="text-gray-500 font-mono text-sm">{asset.serial_number}</p>
-                 {/* Show who it is assigned to on the QR screen too */}
-                 {asset.assigned_to && (
-                   <p className="text-blue-600 text-sm mt-2 font-medium">Assigned to: {asset.assigned_to}</p>
-                 )}
-               </div>
-               <button onClick={() => window.print()} className="w-full bg-gray-900 text-white py-2 rounded-lg mt-4">
-                  Print Label
-               </button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-6 space-y-6">
+               <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-100"><QRCodeSVG value={`Asset: ${asset.name} | SN: ${asset.serial_number}`} size={180} /></div>
+               <div className="text-center"><h3 className="font-bold text-gray-800 text-lg">{name}</h3><p className="text-gray-400 font-mono text-sm">{serial}</p></div>
+               <button onClick={() => window.print()} type="button" className="flex items-center gap-2 bg-gray-900 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-black transition shadow-lg"><Printer size={18} /> Print Label</button>
             </div>
           )}
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }
