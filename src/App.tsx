@@ -128,6 +128,13 @@ function App() {
                 <h1 className="text-lg font-bold text-gray-900 tracking-tight">EQUIP-TRACK</h1>
              </div>
              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mt-1">Enterprise Edition</p>
+             
+             {/* SIGNATURE BADGE */}
+             <div className="bg-gray-50 text-gray-600 px-2 py-1 rounded inline-block mt-3 border border-gray-200">
+                <p className="text-[9px] font-bold flex items-center gap-1.5 uppercase tracking-wide">
+                   <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div> Dev by Akshat
+                </p>
+             </div>
            </div>
            <button onClick={() => setSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
