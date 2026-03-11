@@ -2,6 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    @apply antialiased text-gray-800 cursor-none;
+    /* Subtle dot pattern background - darker for visibility */
+    background-color: #f1f5f9;
+    background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px);
+    background-size: 24px 24px;
+    /* Ensures minimum height */
+    min-height: 100vh;
+  }
+}
+* {
+    cursor: none !important; /* Force custom cursor everywhere */
+}
+
+/* Custom Scrollbar for a premium feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full hover:bg-gray-400 transition-colors;
+}
+
 /* Ensure the root element fills the screen */
 html, body, #root {
   height: 100%;
